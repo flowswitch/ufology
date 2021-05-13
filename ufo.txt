@@ -1,0 +1,182 @@
++ Ellisys UFO file format
+
+++ TLV encoding
+
+Tag, Len, Value
+
++++ Small values
+
+{
+	uint8 len
+	uint8 tag	//bits 7-6 - tag class, bits 5-0 - tag
+	uint8 value[len]
+}
+
++++ Large values
+
+{
+	uint8 tag
+	uint8 large_flag	//0x00 or 0x80 - to distinguish from Small format
+	uint32 len		//little endian
+	uint8	value[len]
+}
+	
+++ File content
+
+0:
+Header {
+	char magic[0x20] = 'Ellisys Visual USB Data File\x00\x0D\x0A\x1A'
+	uint8 uuid[0x10] = all zeroes
+	uint8 type_guid[0x10] = '\x81\xC5\x66\xA7\xFB\x87\xD6\x46\xA7\x4F\x5F\x2F\xF6\xD0\x56\xE2'
+	uint32 extra_offset	//offset of ExtraData
+	uint32 rsvd44		//always 0. high dword of trace_size ?
+	uint16 rsvd48		//always 0 ?
+	uint16 n_extra		//Extra block record count (size of Extra = n_extra*0x10). Normally =0x48
+	uint16 rsvd4C		//always 0 ?
+	uint16 crc			//UBSCRC16(header[0:0x4E])
+}
+sizeof(Header)==0x50
+
+0x50:
+Trace {
+	TLV 0x32 TraceContainer {
+		TLV 0xF3 SWInfo {
+			TLV 74 InfoVendor {
+				wchar_t vendor_name[] //UTF-16
+			}
+			TLV 75 InfoVendorURL {
+				wchar_t vendor_url[] //UTF-16
+			}
+			TLV 76 InfoVendorEmail {
+				wchar_t vendor_email[] //UTF-16
+			}
+			TLV 77 InfoSoftware {
+				wchar_t sw_name[] //UTF-16
+			}
+			TLV 78 InfoSwVersion {
+				uint16 ver_l
+				uint16 ver_ml
+				uint16 ver_mh
+				uint16 ver_h
+			}
+			TLV 79 InfoSupportEmail {
+				wchar_t support_email[] //UTF-16
+			}
+			TLV 3A Info3A { empty }
+			TLV 7B Info3B {
+				uint8 unk3B[8]	//always 0000000000000200
+			}
+		}	
+		TLV 0x00 TraceDataContainer {
+			TLV 0x01 TraceData {
+				//trace records, collection of these tags:
+
+				TLV 0xC7 TransactionGroup {
+					//collection of other transfer tags, i.e. { Token IN, Data DATA0, Handshake ACK }
+					...
+				}
+	
+				TLV 0x07 RelatedTransactionGroup {
+					//collection of other transfer tags related to previous TransactionGroup, i.e. OUT/DATA/ACK after PING/ACK
+					...
+				}
+	
+				TLV 0x48 Token { //IN/OUT/etc
+					uint64 time
+					uint8 speed
+					uint8 pid
+					uint16 dev_ep	// bits 6-0 device address, bits 10-7 EP, bits 15-11 - CRC-5
+				}
+
+				TLV 0x49 Data { //DATA0/DATA1/...
+					uint64 time
+					uint8 speed
+					uint8 pid
+					uint8 data[]
+					uint16 crc					
+				}
+
+				TLV 0x4A Handshake { //ACK/NAK/...
+					uint64 time
+					uint8 speed
+					uint8 pid
+				}
+
+				TLV 0x71 Comment { //comment inserted by user
+					uint64 time
+					uint8 comment[]	//utf-8 string
+				}
+
+				TLV 0x54 Reset { //bus reset
+					uint64 start_time
+					uint64 end_time
+				}
+
+				TLV 0x55 Suspend {
+					uint64 start_time
+					uint64 end_time
+				}
+
+				TLV 0x56 Keepalive {
+					uint64 time
+				}
+
+				TLV 0x57 PowerEvent {				
+					uint64 time
+					uint8 event	//0-power off, 1-power on
+				}
+
+				TLV 0x58 Chirp { //HS chirp
+					uint64 time
+					uint8 status	//0-OK, 1-host timeout, 2-device timeout, 3-insufficient
+				}
+			}
+		}
+		
+		TLV 0xFC ? { 
+			TLV 7D ? {
+				uint16 unk	//always 0x007F
+			}
+		}
+
+		LargeTLV 0x3E TraceInfo {
+			LargeTLV 0x40 AnalyzerSN {
+				uint16 EncAnalyzerSN[]	//encrypted analyzer serial number
+			}
+
+			LargeTLV 0x41 AnalyzerModel {
+				uint8 Model //0x00 - Tracker 110, 0x01 - Explorer 200, ...
+			}
+
+			LargeTLV 0x42 AnalyzerFeatures {
+				uint64 AnalyzerFeaturesBitmask	//options installed on analyzer
+			}
+
+			LargeTLV 0x43 SwVersion { 
+				uint16 EncSwVersion[] //encrypted software version
+			}
+
+			LargeTLV 0x44 OSVersion { 
+				uint16 EncOSVersion[] //encrypted OS version
+			}				
+
+	  		LargeTLV 0x45 TraceSettings {
+	  			zLib-compressed utf-16 strings
+	  		}
+
+	  		LargeTLV 0x46 TraceSummary {
+	  			zLib-compressed XML
+	  		}
+
+			LargeTLV 0x47 HostControllerInfo {
+				uint32 n_uhci
+				uint32 n_ohci
+				uint32 n_ehci
+			}
+		}
+		LargeTLV 0x3F NullTag {}
+	}
+}
+
+extra_offset:
+uint8 ExtraData[n_extra][0x10]	//some encrypted/compressed data. Same for all files where n_extra=0x48
