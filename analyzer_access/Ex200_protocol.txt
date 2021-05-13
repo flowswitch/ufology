@@ -1,0 +1,60 @@
+++ vendor requests
+
++++ analyzer
+	out 01 0000 0000 [0]	reset engine
+	out 02 0/1  0000 [0]	start acquisition
+	out 03 0000 0000 [0]	stop acquisition
+	out 04 0000 0000 [0]	reset acquisition
+	in  05 0000 0000 [1]	get some fpga status
+	in  06 0000 0000 [4]	get sdram level
+	out 07 0000 0000 [0]	flush fifo
+	out 08 0000 0000 [len]	send check connection pattern
+	out 09 0000 0000 [len]	write trigger config	- 
+	in  10 0000 0000 [1]	read lut voltage level - result = (data/255.0)*3.3
+	in  11 0000 0000 [1]	check if analysis link is HS
+
++++ hardware
+	in  B0 0000 0000 [8?]	get activated options
+	out B1    ?    ? [?]	dexor and write to eeprom
+	in  B2 0000 0000 [1]	get some RAM_27 var
+	in  C0 0000 0000 [2]	get some EEPROM bytes
+	in  C1 0000 0000 [2]	get firmware id
+	in  C2 0000 0000 [2]	get firmware revision
+	out C3 0000 0000 [0]	renumerate
+	in  D0 0000 0000 [1]	get power supply state
+	out DB bVal 0000 [0]	fpga raw write
+	in  DC 0000 0000 [1]	fpga raw read
+	in  E0 0000 addr [len]	read eeprom
+	out E1 0000 addr [len]	write eeprom
+	out E2 ?		? eeprom
+	in  E3 0000 0000 [1]	get eeprom ic type
+	in  F0 0000 0000 [4]	get fpga id
+	out F0 id_l id_h [0]	fpga download start
+	out F1 0000 0000 [len]	fpga download data, len<=0x1000, multiple
+
+
++++ acquisition 
+
+acquisition data is read from EP 86, format:
+
+0xEC	- packet delimeter. EC EC -> EC
+
+pkt[0]	flags/pid
+
+if (flags & 0x40)
+	time += pkt[2]<<8 | pkt[1]
+	data_ofs = 3
+else
+	time += pkt[1]
+	data_ofs = 2
+
+if (flags & 0x80)
+	hw_state = flags & 0x0F: 1-?, 2-?, 3-KeepAlive, 4-PowerState = flags & 0x20, 5-HSHandshakeStatus = flags & 30, 6-?, 7-?, 8-?, 9-fatal error stop,
+				A-fatal error stop, B-trigger, C-bug assert, D-bug assert, E-? -> flags & 0x10 == 0 - stop; else exit;
+else
+	pid = flags & 0x0F
+	pid = pid | (pid<<4 ^ 0xF0)
+	speed = flags & 0x30 
+	data = pkt[data_ofs:]
+
+See PrintDump.py

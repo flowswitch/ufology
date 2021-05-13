@@ -1,0 +1,3 @@
+#env = Environment(TARGET_ARCH='x86', CCFLAGS=["/MT", "-EHsc", "/nologo", "/DNDEBUG"], LIBS=["CyAPI.lib", "user32.lib"])
+env = Environment(TARGET_ARCH='amd64', CCFLAGS=["/MT", "-EHsc", "/nologo", "/DNDEBUG"], LIBS=["CyAPI64.lib", "setupapi.lib", "user32.lib"])
+env.Program("record", ["record.cpp", "Ex200.cpp"])

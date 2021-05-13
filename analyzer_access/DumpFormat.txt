@@ -1,0 +1,16 @@
+EC	packet delimeter. EC EC -> EC
+
++0	flags/pid
+
+if (flags & 0x40)
+	counter = [2]<<8 | [1]
+else
+	counter = [1]
+
+if (flags & 0x80)
+	hw_state = flags & 0x0F: 1-?, 2-?, 3-KeepAlive, 4-PowerState = flags & 0x20, 5-HSHandshakeStatus = flags & 30, 6-?, 7-?, 8-?, 9-fatal error stop,
+				A-fatal error stop, B-trigger, C-bug assert, D-bug assert, E-? -> flags & 0x10 == 0 - stop; else exit;
+else
+	pid = flags & 0x0F
+	pid = pid | (pid<<4 ^ 0xF0)
+	speed = flags & 0x30 
